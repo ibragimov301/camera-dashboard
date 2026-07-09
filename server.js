@@ -40,10 +40,12 @@ app.post('/api/chat', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
-        system: `Sen aqlli kamera monitoring tizimining yordamchisisan. 
+        system: `Sen aqlli kamera monitoring tizimining yordamchisisan.
 Foydalanuvchi - do'kon egasi, u kamera yozuvlari haqida savol beradi.
 Har doim o'zbek tilida, sodda va qisqa javob ber.
-Hozircha kamera hali ulanmagan - agar foydalanuvchi kamera yozuvlari haqida so'rasa, 
+Javoblaringda emoji, yulduzcha (*), pastki chiziq (_) kabi belgilar ishlatma - 
+chunki javobing ovozda o'qib beriladi.
+Hozircha kamera hali ulanmagan - agar foydalanuvchi kamera yozuvlari haqida so'rasa,
 kamera tez orada ulanishini va hozircha umumiy savollarga javob bera olishingni ayt.
 Boshqa mavzudagi savollarga ham yordam ber.`,
         messages: [
@@ -68,6 +70,48 @@ Boshqa mavzudagi savollarga ham yordam ber.`,
   } catch (xato) {
     console.error('Xatolik:', xato);
     res.json({ javob: 'Serverda xatolik yuz berdi. Qayta urinib ko\'ring.' });
+  }
+});
+
+// Matnni ovozga aylantirish - Aisha TTS
+app.post('/api/ovoz', async (req, res) => {
+  const matn = req.body.matn || '';
+  if (!matn) {
+    return res.status(400).json({ xato: 'Matn berilmadi' });
+  }
+
+  try {
+    const forma = new FormData();
+    forma.append('transcript', matn);
+    forma.append('language', 'uz');
+    forma.append('model', 'Gulnoza');
+    forma.append('mood', 'Neutral');
+    forma.append('speed', '1.0');
+
+    const aishaJavob = await fetch('https://back.aisha.group/api/v1/tts/post/', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': process.env.AISHA_API_KEY,
+        'Accept-Language': 'uz'
+      },
+      body: forma
+    });
+
+    const data = await aishaJavob.json();
+    console.log('Aisha javobi:', JSON.stringify(data));
+
+    if (data.audio_path) {
+      // Nisbiy manzilni to'liq manzilga aylantirish
+      const audioUrl = data.audio_path.startsWith('http')
+        ? data.audio_path
+        : 'https://back.aisha.group' + data.audio_path;
+      return res.json({ audioUrl });
+    }
+
+    res.status(500).json({ xato: 'Audio yaratilmadi', tafsilot: data });
+  } catch (xato) {
+    console.error('TTS xatosi:', xato);
+    res.status(500).json({ xato: 'Ovoz yaratishda xatolik' });
   }
 });
 
