@@ -22,12 +22,53 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// AI chat (hozircha sinov javobi, keyin Claude ulaymiz)
-app.post('/api/chat', (req, res) => {
+// AI chat - Claude bilan
+app.post('/api/chat', async (req, res) => {
   const savol = req.body.savol || '';
-  res.json({
-    javob: `Savolingiz qabul qilindi: "${savol}". AI tahlil tez orada ulanadi!`
-  });
+  if (!savol) {
+    return res.json({ javob: 'Iltimos, savol yozing.' });
+  }
+
+  try {
+    const claudeJavob = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: `Sen aqlli kamera monitoring tizimining yordamchisisan. 
+Foydalanuvchi - do'kon egasi, u kamera yozuvlari haqida savol beradi.
+Har doim o'zbek tilida, sodda va qisqa javob ber.
+Hozircha kamera hali ulanmagan - agar foydalanuvchi kamera yozuvlari haqida so'rasa, 
+kamera tez orada ulanishini va hozircha umumiy savollarga javob bera olishingni ayt.
+Boshqa mavzudagi savollarga ham yordam ber.`,
+        messages: [
+          { role: 'user', content: savol }
+        ]
+      })
+    });
+
+    const data = await claudeJavob.json();
+
+    if (data.error) {
+      console.error('Claude API xatosi:', data.error);
+      return res.json({ javob: 'AI bilan bog\'lanishda xatolik: ' + (data.error.message || 'noma\'lum xato') });
+    }
+
+    const matn = data.content
+      .map(item => (item.type === 'text' ? item.text : ''))
+      .filter(Boolean)
+      .join('\n');
+
+    res.json({ javob: matn || 'Javob olinmadi.' });
+  } catch (xato) {
+    console.error('Xatolik:', xato);
+    res.json({ javob: 'Serverda xatolik yuz berdi. Qayta urinib ko\'ring.' });
+  }
 });
 
 // Server holatini tekshirish (Render monitoring uchun)
