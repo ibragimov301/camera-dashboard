@@ -25,8 +25,10 @@
   .kirish { display: flex; gap: 8px; margin-top: 12px; }
   .kirish input { flex: 1; background: #0a0e18; border: 1px solid #232d45; border-radius: 10px; padding: 12px 14px; color: #e8ecf4; font-size: 14px; outline: none; }
   .kirish input:focus { border-color: #2563eb; }
-  .kirish button { background: #2563eb; border: none; border-radius: 10px; padding: 12px 20px; color: white; font-size: 14px; cursor: pointer; }
-  .kirish button:hover { background: #1d4ed8; }
+  .kirish button { background: #2563eb; border: none; border-radius: 10px; padding: 12px 18px; color: white; font-size: 14px; cursor: pointer; }
+  .kirish button:hover { opacity: 0.9; }
+  .kirish button.mikrofon { background: #374151; font-size: 16px; }
+  .kirish button.mikrofon.yozmoqda { background: #dc2626; }
   .keng { grid-column: 1 / -1; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #232d45; }
@@ -55,10 +57,11 @@
     <h2>🤖 AI yordamchi</h2>
     <div class="chat-oyna">
       <div class="xabarlar" id="xabarlar">
-        <div class="xabar ai">Assalomu alaykum! Men kamera yozuvlari bo'yicha yordamchiman. Savolingizni yozing, masalan: "Bugun soat 12:00 da qizil futbolkali odam keldimi?"</div>
+        <div class="xabar ai">Assalomu alaykum! Men kamera yozuvlari bo'yicha yordamchiman. Savolingizni yozing yoki 🎤 tugmasini bosib gapiring.</div>
       </div>
       <div class="kirish">
         <input type="text" id="savolKirish" placeholder="Savolingizni yozing..." onkeydown="if(event.key==='Enter')yubor()">
+        <button class="mikrofon" id="mikrofonTugma" onclick="ovozBoshla()" title="Ovoz bilan so'rash">🎤</button>
         <button onclick="yubor()">Yuborish</button>
       </div>
     </div>
@@ -112,6 +115,42 @@ async function yubor() {
     oyna.innerHTML += '<div class="xabar ai">Xatolik yuz berdi. Qayta urinib ko\'ring.</div>';
   }
   oyna.scrollTop = oyna.scrollHeight;
+}
+
+// Ovozli boshqaruv (Web Speech API)
+let taniyapti = false;
+function ovozBoshla() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('Brauzeringiz ovozni tanishni qo\'llab-quvvatlamaydi. Chrome ishlating.');
+    return;
+  }
+  if (taniyapti) return;
+
+  const tanish = new SpeechRecognition();
+  tanish.lang = 'uz-UZ';
+  tanish.interimResults = false;
+
+  const tugma = document.getElementById('mikrofonTugma');
+  tugma.classList.add('yozmoqda');
+  tugma.textContent = '⏺';
+  taniyapti = true;
+
+  tanish.onresult = function(hodisa) {
+    const matn = hodisa.results[0][0].transcript;
+    document.getElementById('savolKirish').value = matn;
+    yubor();
+  };
+  tanish.onerror = function() {
+    alert('Ovoz tanilmadi. Qayta urinib ko\'ring yoki yozib yuboring.');
+  };
+  tanish.onend = function() {
+    tugma.classList.remove('yozmoqda');
+    tugma.textContent = '🎤';
+    taniyapti = false;
+  };
+
+  tanish.start();
 }
 </script>
 </body>
