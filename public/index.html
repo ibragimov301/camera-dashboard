@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aqlli Kamera Monitoring</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+  body { background: #0f1420; color: #e8ecf4; min-height: 100vh; }
+  header { background: #161d2e; padding: 16px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #232d45; }
+  header .logo { font-size: 24px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .holat { margin-left: auto; font-size: 13px; color: #4ade80; }
+  .konteyner { max-width: 1100px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .konteyner { grid-template-columns: 1fr; } }
+  .karta { background: #161d2e; border: 1px solid #232d45; border-radius: 14px; padding: 18px; }
+  .karta h2 { font-size: 15px; margin-bottom: 12px; color: #9db2d9; }
+  .kamera-oyna { aspect-ratio: 16/9; background: #0a0e18; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: #5a6a8a; font-size: 14px; }
+  .kamera-oyna .belgi { font-size: 40px; }
+  .chat-oyna { display: flex; flex-direction: column; height: 420px; }
+  .xabarlar { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 6px 2px; }
+  .xabar { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+  .xabar.men { align-self: flex-end; background: #2563eb; }
+  .xabar.ai { align-self: flex-start; background: #232d45; }
+  .kirish { display: flex; gap: 8px; margin-top: 12px; }
+  .kirish input { flex: 1; background: #0a0e18; border: 1px solid #232d45; border-radius: 10px; padding: 12px 14px; color: #e8ecf4; font-size: 14px; outline: none; }
+  .kirish input:focus { border-color: #2563eb; }
+  .kirish button { background: #2563eb; border: none; border-radius: 10px; padding: 12px 20px; color: white; font-size: 14px; cursor: pointer; }
+  .kirish button:hover { background: #1d4ed8; }
+  .keng { grid-column: 1 / -1; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #232d45; }
+  th { color: #9db2d9; font-weight: 600; }
+  .bosh-holat { color: #5a6a8a; text-align: center; padding: 20px; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">📹</span>
+  <h1>Aqlli Kamera Monitoring Tizimi</h1>
+  <span class="holat" id="serverHolat">● Ulanmoqda...</span>
+</header>
+
+<div class="konteyner">
+  <div class="karta">
+    <h2>🎥 Jonli kamera</h2>
+    <div class="kamera-oyna">
+      <span class="belgi">📷</span>
+      <span>Kamera hali ulanmagan</span>
+      <span style="font-size:12px">NVR ulanishi keyingi bosqichda sozlanadi</span>
+    </div>
+  </div>
+
+  <div class="karta">
+    <h2>🤖 AI yordamchi</h2>
+    <div class="chat-oyna">
+      <div class="xabarlar" id="xabarlar">
+        <div class="xabar ai">Assalomu alaykum! Men kamera yozuvlari bo'yicha yordamchiman. Savolingizni yozing, masalan: "Bugun soat 12:00 da qizil futbolkali odam keldimi?"</div>
+      </div>
+      <div class="kirish">
+        <input type="text" id="savolKirish" placeholder="Savolingizni yozing..." onkeydown="if(event.key==='Enter')yubor()">
+        <button onclick="yubor()">Yuborish</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="karta keng">
+    <h2>📋 Kim keldi-ketdi tarixi</h2>
+    <table>
+      <thead>
+        <tr><th>Vaqt</th><th>Kamera</th><th>Tavsif</th></tr>
+      </thead>
+      <tbody id="tarixJadval">
+        <tr><td colspan="3" class="bosh-holat">Hozircha yozuvlar yo'q — kamera ulangach bu yerda harakatlar ko'rinadi</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// Server holatini tekshirish
+fetch('/api/status')
+  .then(r => r.json())
+  .then(() => {
+    document.getElementById('serverHolat').textContent = '● Server faol';
+  })
+  .catch(() => {
+    document.getElementById('serverHolat').textContent = '● Server ulanmadi';
+    document.getElementById('serverHolat').style.color = '#f87171';
+  });
+
+// Chat funksiyasi
+async function yubor() {
+  const kirish = document.getElementById('savolKirish');
+  const savol = kirish.value.trim();
+  if (!savol) return;
+
+  const oyna = document.getElementById('xabarlar');
+  oyna.innerHTML += '<div class="xabar men">' + savol.replace(/</g,'&lt;') + '</div>';
+  kirish.value = '';
+  oyna.scrollTop = oyna.scrollHeight;
+
+  try {
+    const javob = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ savol })
+    });
+    const data = await javob.json();
+    oyna.innerHTML += '<div class="xabar ai">' + data.javob.replace(/</g,'&lt;') + '</div>';
+  } catch (e) {
+    oyna.innerHTML += '<div class="xabar ai">Xatolik yuz berdi. Qayta urinib ko\'ring.</div>';
+  }
+  oyna.scrollTop = oyna.scrollHeight;
+}
+</script>
+</body>
+</html>
