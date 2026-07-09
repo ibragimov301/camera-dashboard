@@ -15,7 +15,7 @@
   @media (max-width: 800px) { .konteyner { grid-template-columns: 1fr; } }
   .karta { background: #161d2e; border: 1px solid #232d45; border-radius: 14px; padding: 18px; }
   .karta h2 { font-size: 15px; margin-bottom: 12px; color: #9db2d9; display: flex; align-items: center; }
-  .karta h2 .ovoz-tugma { margin-left: auto; background: #232d45; border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 14px; }
+  .karta h2 .ovoz-tugma { margin-left: auto; background: #232d45; border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; color: #e8ecf4; }
   .kamera-oyna { aspect-ratio: 16/9; background: #0a0e18; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: #5a6a8a; font-size: 14px; }
   .kamera-oyna .belgi { font-size: 40px; }
   .chat-oyna { display: flex; flex-direction: column; height: 420px; }
@@ -56,7 +56,7 @@
 
   <div class="karta">
     <h2>🤖 AI yordamchi
-      <button class="ovoz-tugma" id="ovozTugma" onclick="ovozniAlmashtir()" title="Javobni ovozda o'qish">🔊 Ovoz: yoniq</button>
+      <button class="ovoz-tugma" id="ovozTugma" onclick="ovozniAlmashtir()">🔊 Ovoz: yoniq</button>
     </h2>
     <div class="chat-oyna">
       <div class="xabarlar" id="xabarlar">
@@ -83,6 +83,8 @@
   </div>
 </div>
 
+<audio id="audioPleer" style="display:none"></audio>
+
 <script>
 // Server holatini tekshirish
 fetch('/api/status')
@@ -95,41 +97,44 @@ fetch('/api/status')
     document.getElementById('serverHolat').style.color = '#f87171';
   });
 
-// ===== Ovozli o'qish (Text-to-Speech) =====
+// ===== Ovozli o'qish (Aisha TTS orqali) =====
 let ovozYoniq = true;
 
 function ovozniAlmashtir() {
   ovozYoniq = !ovozYoniq;
   const tugma = document.getElementById('ovozTugma');
   tugma.textContent = ovozYoniq ? '🔊 Ovoz: yoniq' : '🔇 Ovoz: o\'chiq';
-  if (!ovozYoniq) window.speechSynthesis.cancel();
+  if (!ovozYoniq) {
+    const pleer = document.getElementById('audioPleer');
+    pleer.pause();
+    pleer.currentTime = 0;
+  }
 }
 
-function ovozdaOqi(matn) {
-  if (!ovozYoniq || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel(); // oldingi o'qishni to'xtatish
+async function ovozdaOqi(matn) {
+  if (!ovozYoniq) return;
 
-  // Emoji va belgilarni tozalash (ovozda g'alati eshitilmasligi uchun)
-  const tozaMatn = matn.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}*_#]/gu, '');
+  // Emoji va maxsus belgilarni tozalash
+  const tozaMatn = matn.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}*_#`]/gu, '').trim();
+  if (!tozaMatn) return;
 
-  const nutq = new SpeechSynthesisUtterance(tozaMatn);
+  try {
+    const javob = await fetch('/api/ovoz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matn: tozaMatn })
+    });
+    const data = await javob.json();
 
-  // O'zbek ovozini qidirish, topilmasa rus, keyin turk (talaffuzi yaqinroq)
-  const ovozlar = window.speechSynthesis.getVoices();
-  const uzOvoz = ovozlar.find(v => v.lang.startsWith('uz'));
-  const ruOvoz = ovozlar.find(v => v.lang.startsWith('ru'));
-  const trOvoz = ovozlar.find(v => v.lang.startsWith('tr'));
-
-  if (uzOvoz) { nutq.voice = uzOvoz; nutq.lang = uzOvoz.lang; }
-  else if (trOvoz) { nutq.voice = trOvoz; nutq.lang = trOvoz.lang; }
-  else if (ruOvoz) { nutq.voice = ruOvoz; nutq.lang = ruOvoz.lang; }
-
-  nutq.rate = 0.95;
-  window.speechSynthesis.speak(nutq);
+    if (data.audioUrl) {
+      const pleer = document.getElementById('audioPleer');
+      pleer.src = data.audioUrl;
+      pleer.play().catch(e => console.log('Audio ijro xatosi:', e));
+    }
+  } catch (e) {
+    console.log('TTS xatosi:', e);
+  }
 }
-
-// Ovozlar ro'yxati kech yuklanadi — oldindan chaqirib qo'yamiz
-if (window.speechSynthesis) window.speechSynthesis.getVoices();
 
 // ===== Chat funksiyasi =====
 async function yubor() {
