@@ -14,7 +14,8 @@
   .konteyner { max-width: 1100px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   @media (max-width: 800px) { .konteyner { grid-template-columns: 1fr; } }
   .karta { background: #161d2e; border: 1px solid #232d45; border-radius: 14px; padding: 18px; }
-  .karta h2 { font-size: 15px; margin-bottom: 12px; color: #9db2d9; }
+  .karta h2 { font-size: 15px; margin-bottom: 12px; color: #9db2d9; display: flex; align-items: center; }
+  .karta h2 .ovoz-tugma { margin-left: auto; background: #232d45; border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 14px; }
   .kamera-oyna { aspect-ratio: 16/9; background: #0a0e18; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: #5a6a8a; font-size: 14px; }
   .kamera-oyna .belgi { font-size: 40px; }
   .chat-oyna { display: flex; flex-direction: column; height: 420px; }
@@ -31,127 +32,4 @@
   .kirish button.mikrofon.yozmoqda { background: #dc2626; }
   .keng { grid-column: 1 / -1; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #232d45; }
-  th { color: #9db2d9; font-weight: 600; }
-  .bosh-holat { color: #5a6a8a; text-align: center; padding: 20px; font-size: 13px; }
-</style>
-</head>
-<body>
-<header>
-  <span class="logo">📹</span>
-  <h1>Aqlli Kamera Monitoring Tizimi</h1>
-  <span class="holat" id="serverHolat">● Ulanmoqda...</span>
-</header>
-
-<div class="konteyner">
-  <div class="karta">
-    <h2>🎥 Jonli kamera</h2>
-    <div class="kamera-oyna">
-      <span class="belgi">📷</span>
-      <span>Kamera hali ulanmagan</span>
-      <span style="font-size:12px">NVR ulanishi keyingi bosqichda sozlanadi</span>
-    </div>
-  </div>
-
-  <div class="karta">
-    <h2>🤖 AI yordamchi</h2>
-    <div class="chat-oyna">
-      <div class="xabarlar" id="xabarlar">
-        <div class="xabar ai">Assalomu alaykum! Men kamera yozuvlari bo'yicha yordamchiman. Savolingizni yozing yoki 🎤 tugmasini bosib gapiring.</div>
-      </div>
-      <div class="kirish">
-        <input type="text" id="savolKirish" placeholder="Savolingizni yozing..." onkeydown="if(event.key==='Enter')yubor()">
-        <button class="mikrofon" id="mikrofonTugma" onclick="ovozBoshla()" title="Ovoz bilan so'rash">🎤</button>
-        <button onclick="yubor()">Yuborish</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="karta keng">
-    <h2>📋 Kim keldi-ketdi tarixi</h2>
-    <table>
-      <thead>
-        <tr><th>Vaqt</th><th>Kamera</th><th>Tavsif</th></tr>
-      </thead>
-      <tbody id="tarixJadval">
-        <tr><td colspan="3" class="bosh-holat">Hozircha yozuvlar yo'q — kamera ulangach bu yerda harakatlar ko'rinadi</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<script>
-// Server holatini tekshirish
-fetch('/api/status')
-  .then(r => r.json())
-  .then(() => {
-    document.getElementById('serverHolat').textContent = '● Server faol';
-  })
-  .catch(() => {
-    document.getElementById('serverHolat').textContent = '● Server ulanmadi';
-    document.getElementById('serverHolat').style.color = '#f87171';
-  });
-
-// Chat funksiyasi
-async function yubor() {
-  const kirish = document.getElementById('savolKirish');
-  const savol = kirish.value.trim();
-  if (!savol) return;
-
-  const oyna = document.getElementById('xabarlar');
-  oyna.innerHTML += '<div class="xabar men">' + savol.replace(/</g,'&lt;') + '</div>';
-  kirish.value = '';
-  oyna.scrollTop = oyna.scrollHeight;
-
-  try {
-    const javob = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ savol })
-    });
-    const data = await javob.json();
-    oyna.innerHTML += '<div class="xabar ai">' + data.javob.replace(/</g,'&lt;') + '</div>';
-  } catch (e) {
-    oyna.innerHTML += '<div class="xabar ai">Xatolik yuz berdi. Qayta urinib ko\'ring.</div>';
-  }
-  oyna.scrollTop = oyna.scrollHeight;
-}
-
-// Ovozli boshqaruv (Web Speech API)
-let taniyapti = false;
-function ovozBoshla() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert('Brauzeringiz ovozni tanishni qo\'llab-quvvatlamaydi. Chrome ishlating.');
-    return;
-  }
-  if (taniyapti) return;
-
-  const tanish = new SpeechRecognition();
-  tanish.lang = 'uz-UZ';
-  tanish.interimResults = false;
-
-  const tugma = document.getElementById('mikrofonTugma');
-  tugma.classList.add('yozmoqda');
-  tugma.textContent = '⏺';
-  taniyapti = true;
-
-  tanish.onresult = function(hodisa) {
-    const matn = hodisa.results[0][0].transcript;
-    document.getElementById('savolKirish').value = matn;
-    yubor();
-  };
-  tanish.onerror = function() {
-    alert('Ovoz tanilmadi. Qayta urinib ko\'ring yoki yozib yuboring.');
-  };
-  tanish.onend = function() {
-    tugma.classList.remove('yozmoqda');
-    tugma.textContent = '🎤';
-    taniyapti = false;
-  };
-
-  tanish.start();
-}
-</script>
-</body>
-</html>
+  th, td { text-align: left;
